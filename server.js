@@ -45,7 +45,7 @@ function POSTactions (request, response){
     request.on('end', function(){
 
       //grab all the incomind Data an make it readable
-      incomingData = querystring.parse(requestBody)
+      incomingData = querystring.parse(requestBody);
 
       generateFile(response);
 
@@ -103,12 +103,58 @@ function creatingFiles (response){
       response.write(err);
       throw err;
     }else{
-      response.write('File has been genereated successfullly.');
+      updateIndexFile();
+      response.setHeader("Content-Type", "application/json");
+      response.write("{ \"success\" : true }");
       response.end();
     }
   });
 
 }
+
+
+//read index file
+
+function readIndexFile (){
+
+  fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
+    if(err){
+      response.write(err);
+      throw err;
+    }else{
+
+    setNumofElement();
+    setElementList();
+  }
+
+  });
+
+
+}
+
+//use regex to set variables for
+function setNumofElement (){
+
+}
+var numOfElementsOnIndex = 2;
+// the number of elements
+// regex: /(\d+)</h3>/g
+
+function setElementList (){
+
+}
+var elementListOnIndex;
+//the list
+// regex: /<ol>(.*)</ol>/g
+
+
+
+//re-write the index file just like a new file name is created
+function updateIndexFile (response){
+
+}
+
+
 
 
 function GETandHEADActions (request, response){
