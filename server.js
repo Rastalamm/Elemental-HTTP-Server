@@ -5,14 +5,15 @@ var PORT = 6464;
 var PUBLIC_DIR = './public/';
 var requestBody = '';
 var incomingData;
+var theUri;
 var fileName;
 var fileContent;
 var numOfElementsOnIndex;
 var elementListOnIndex;
 var newIndexContent;
+var fileExists;
 
-
-var Method = {
+var HTTPmethod = {
   GET : 'GET',
   POST : 'POST',
   HEAD : 'HEAD',
@@ -20,21 +21,113 @@ var Method = {
 };
 
 
-var server = http.createServer(handleRequest);
+var server = http.createServer(getsResponseFromClient);
+
+function getsResponseFromClient(request, response){
+  setTheUri(request);
+  grabBodyOfRequest(request, response);
+  EndOfDataStream(request, response);
+}
+
+function setTheUri(request){
+  theUri = request.url;
+
+  if(theUri === '/'){
+    theUri = 'index.html';
+  }
+}
+
+function grabBodyOfRequest (request, response){
+  request.on('data', function(data){
+    requestBody += data.toString();
+  })
+}
+
+
+function EndOfDataStream(request, response){
+  request.on('end', function(){
+
+    //grab all the incomind Data an make it readable
+    incomingData = querystring.parse(requestBody);
+
+    generateFile(request, response);
+
+  });
+
+}
+
+function generateFile (request, response) {
+
+  fileName = incomingData.elementName+'.html';
+
+  fileContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
+  incomingData.elementName +
+  '</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>' +
+  incomingData.elementName +
+  '</h1> <h2>' +
+  incomingData.elementSymbol +
+  '</h2> <h3>Atomic number ' +
+  incomingData.elementAtomicNumber +
+  '</h3> <p>' +
+  incomingData.elementDescription +
+  '</p> <p><a href="/">back</a></p> </body> </html>' ;
+
+  checkFileExisting(request, response);
+
+}
+
+
+
+function checkFileExisting (request, response){
+
+  fs.exists(PUBLIC_DIR + fileName, function(exists){
+    if(exists){
+      //if the file exists
+      fileExists = true;
+      // response.write('File exists. Need New Element');
+      // response.end()
+    }else{
+      //is file is not there, create it!
+      fileExists = false;
+      //creatingFiles(response);
+    }
+  });
+
+  handleRequest(request, response);
+
+}
+
 
 
 function handleRequest(request, response){
+console.log('running get', request.method);
+  switch(request.method){
+    case HTTPmethod.HEAD :
+      //run the http head
+      processHEADMethod(request, response);
+    break;
 
-  // console.log('request', request.url);
-  // console.log('uri', request.url);
+    case HTTPmethod.GET:
+      // run GET
+      processGETMethod(request, response);
+    break;
 
+    case HTTPmethod.POST:
+      //run POST
+    break;
 
-  if([Method.GET, Method.HEAD].indexOf(request.method) > -1){
-    GETandHEADActions (request, response);
-  }else if(request.method === Method.POST){
-    POSTactions (request, response);
-  } else if(request.method === Method.PUT){
-    PUTactions(request, response);
+    case HTTPmethod.PUT:
+      //run PUT
+    break;
+
+    // case HTTPmethod.DELETE:
+    //   //run delete
+    // break;
+
+    default:
+      //default action
+    break;
+
   }
 }
 
@@ -44,16 +137,8 @@ function POSTactions (request, response){
 
     console.log('uri', uri);
 
-    grabBodyOfRequest (request, response)
+    //grabBodyOfRequest (request, response)
 
-    request.on('end', function(){
-
-      //grab all the incomind Data an make it readable
-      incomingData = querystring.parse(requestBody);
-
-      generateFile(response);
-
-    });
 }
 
 function PUTactions (request, response){
@@ -75,51 +160,13 @@ function PUTactions (request, response){
 
 }
 
-function grabBodyOfRequest (request, response){
-
-  request.on('data', function(data){
-    requestBody += data.toString();
-  })
-}
-
-
-function generateFile (response) {
-
-  fileName = incomingData.elementName+'.html';
-
-  fileContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
-  incomingData.elementName +
-  '</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>' +
-  incomingData.elementName +
-  '</h1> <h2>' +
-  incomingData.elementSymbol +
-  '</h2> <h3>Atomic number ' +
-  incomingData.elementAtomicNumber +
-  '</h3> <p>' +
-  incomingData.elementDescription +
-  '</p> <p><a href="/">back</a></p> </body> </html>' ;
-
-  checkFileExisting(response);
-
-}
-
-function checkFileExisting (response){
-
-  fs.exists(PUBLIC_DIR + fileName, function(exists){
-    if(exists){
-      //if the file exists
-      response.write('File exists. Need New Element');
-      response.end()
-    }else{
-      //is file is not there, create it!
-      creatingFiles(response);
-    }
-  });
-}
 
 
 
-function creatingFiles (response){
+
+
+
+function creatingFile (response){
 
   fs.writeFile(PUBLIC_DIR + fileName, fileContent, function(err){
     if(err){
@@ -192,17 +239,14 @@ function updateIndexFile (response){
   });
 }
 
-function GETandHEADActions (request, response){
-  var uri = request.url;
 
-  if(uri === '/'){
-    uri = 'index.html';
-  }
+function processHEADMethod (request, response){
 
-  fs.exists(PUBLIC_DIR + uri, function(exists){
+
+  fs.exists(PUBLIC_DIR + theUri, function(exists){
     if(exists){
       //is file is there, give it to them
-      serveFileToClient (response, uri);
+      serveFileToClient (response, theUri);
     }else{
       //if there is a 404 error
       handle404Error (response);
@@ -210,9 +254,25 @@ function GETandHEADActions (request, response){
   });
 }
 
-function serveFileToClient (response, uri){
 
-  fs.readFile(PUBLIC_DIR + uri, function (err, data){
+
+function processGETMethod (request, response){
+
+
+  fs.exists(PUBLIC_DIR + theUri, function(exists){
+    if(exists){
+      //is file is there, give it to them
+      serveFileToClient (response, theUri);
+    }else{
+      //if there is a 404 error
+      handle404Error (response);
+    }
+  });
+}
+
+function serveFileToClient (response, theUri){
+
+  fs.readFile(PUBLIC_DIR + theUri, function (err, data){
     if(err) throw err;
     response.write(data);
     response.end();
