@@ -11,7 +11,7 @@ var fileContent;
 var numOfElementsOnIndex;
 var elementListOnIndex;
 var newIndexContent;
-var fileExists;
+var fileExists = false;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -34,6 +34,7 @@ function setTheUri(request){
 
   if(theUri === '/'){
     theUri = 'index.html';
+    fileExists = true;
   }
 }
 
@@ -80,8 +81,11 @@ function generateFile (request, response) {
 
 function checkFileExisting (request, response){
 
+
+
   fs.exists(PUBLIC_DIR + fileName, function(exists){
     if(exists){
+      console.log('here');
       //if the file exists
       fileExists = true;
       // response.write('File exists. Need New Element');
@@ -93,6 +97,8 @@ function checkFileExisting (request, response){
     }
   });
 
+  console.log('fileExists', fileExists);
+
   handleRequest(request, response);
 
 }
@@ -100,7 +106,7 @@ function checkFileExisting (request, response){
 
 
 function handleRequest(request, response){
-console.log('running get', request.method);
+
   switch(request.method){
     case HTTPmethod.HEAD :
       //run the http head
@@ -241,33 +247,23 @@ function updateIndexFile (response){
 
 
 function processHEADMethod (request, response){
-
-
-  fs.exists(PUBLIC_DIR + theUri, function(exists){
-    if(exists){
-      //is file is there, give it to them
-      serveFileToClient (response, theUri);
-    }else{
-      //if there is a 404 error
-      handle404Error (response);
-    }
-  });
+  if(fileExists){
+    serveFileToClient (response, theUri);
+  }else{
+    handle404Error (response);
+  }
 }
 
 
 
 function processGETMethod (request, response){
 
+  if(fileExists){
+    serveFileToClient (response, theUri);
+  }else{
+    handle404Error (response);
+  }
 
-  fs.exists(PUBLIC_DIR + theUri, function(exists){
-    if(exists){
-      //is file is there, give it to them
-      serveFileToClient (response, theUri);
-    }else{
-      //if there is a 404 error
-      handle404Error (response);
-    }
-  });
 }
 
 function serveFileToClient (response, theUri){
