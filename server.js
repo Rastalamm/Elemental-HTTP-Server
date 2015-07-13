@@ -32,15 +32,14 @@ function handleRequest(request, response){
   if([Method.GET, Method.HEAD].indexOf(request.method) > -1){
     GETandHEADActions (request, response);
   }else if(request.method === Method.POST){
-    POSTactions (request, response)
+    POSTactions (request, response);
   } else if(request.method === Method.PUT){
-
+    PUTactions(request, response);
   }
 }
 
 function POSTactions (request, response){
 
-  //response.statusCode = 103;
     var uri = request.url;
 
     console.log('uri', uri);
@@ -55,6 +54,25 @@ function POSTactions (request, response){
       generateFile(response);
 
     });
+}
+
+function PUTactions (request, response){
+
+    var uri = request.url;
+
+    console.log('uri', uri);
+
+    grabBodyOfRequest (request, response)
+
+    request.on('end', function(){
+
+      //grab all the incomind Data an make it readable
+      incomingData = querystring.parse(requestBody);
+
+      generateFile(response);
+
+    });
+
 }
 
 function grabBodyOfRequest (request, response){
