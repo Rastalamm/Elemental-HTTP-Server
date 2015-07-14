@@ -5,85 +5,62 @@ var PORT = 6464;
 var PUBLIC_DIR = './public/';
 var requestBody = '';
 var incomingData;
+var theUri;
 var fileName;
 var fileContent;
 var numOfElementsOnIndex;
 var elementListOnIndex;
 var newIndexContent;
+var fileExists = false;
 
-
-var Method = {
+var HTTPmethod = {
   GET : 'GET',
   POST : 'POST',
   HEAD : 'HEAD',
   PUT : 'PUT'
 };
 
+var count = 0;
 
-var server = http.createServer(handleRequest);
-
-
-function handleRequest(request, response){
-
-  // console.log('request', request.url);
-  // console.log('uri', request.url);
+var server = http.createServer(getsResponseFromClient);
 
 
-  if([Method.GET, Method.HEAD].indexOf(request.method) > -1){
-    GETandHEADActions (request, response);
-  }else if(request.method === Method.POST){
-    POSTactions (request, response);
-  } else if(request.method === Method.PUT){
-    PUTactions(request, response);
+function getsResponseFromClient(request, response){
+
+  setTheUri(request);
+  grabBodyOfRequest(request, response);
+  EndOfDataStream(request, response);
+}
+
+function setTheUri(request){
+  theUri = request.url;
+
+  if(theUri === '/'){
+    theUri = 'index.html';
+    fileExists = true;
   }
 }
 
-function POSTactions (request, response){
-
-    var uri = request.url;
-
-    console.log('uri', uri);
-
-    grabBodyOfRequest (request, response)
-
-    request.on('end', function(){
-
-      //grab all the incomind Data an make it readable
-      incomingData = querystring.parse(requestBody);
-
-      generateFile(response);
-
-    });
-}
-
-function PUTactions (request, response){
-
-    var uri = request.url;
-
-    console.log('uri', uri);
-
-    grabBodyOfRequest (request, response)
-
-    request.on('end', function(){
-
-      //grab all the incomind Data an make it readable
-      incomingData = querystring.parse(requestBody);
-
-      generateFile(response);
-
-    });
-
-}
-
 function grabBodyOfRequest (request, response){
-
   request.on('data', function(data){
     requestBody += data.toString();
   })
 }
 
 
-function generateFile (response) {
+function EndOfDataStream(request, response){
+  request.on('end', function(){
+
+    //grab all the incomind Data an make it readable
+    incomingData = querystring.parse(requestBody);
+
+    generateFile(request, response);
+
+  });
+
+}
+
+function generateFile (request, response) {
 
   fileName = incomingData.elementName+'.html';
 
@@ -99,35 +76,89 @@ function generateFile (response) {
   incomingData.elementDescription +
   '</p> <p><a href="/">back</a></p> </body> </html>' ;
 
-  checkFileExisting(response);
+  checkFileExisting(request, response);
 
 }
 
-function checkFileExisting (response){
+function checkFileExisting (request, response){
 
   fs.exists(PUBLIC_DIR + fileName, function(exists){
     if(exists){
-      //if the file exists
-      response.write('File exists. Need New Element');
-      response.end()
+      fileExists = true;
     }else{
-      //is file is not there, create it!
-      creatingFiles(response);
+      fileExists = false;
     }
+
+    handleRequest(request, response);
   });
 }
 
 
 
-function creatingFiles (response){
+function handleRequest(request, response){
+
+  switch(request.method){
+    case HTTPmethod.HEAD :
+      //run the http head
+      processHEADMethod(request, response);
+    break;
+
+    case HTTPmethod.GET:
+      // run GET
+      processGETMethod(request, response);
+    break;
+
+    case HTTPmethod.POST:
+      processPOSTMethod(request, response);
+    break;
+
+    case HTTPmethod.PUT:
+
+      processPUTMethod(request, response);
+    break;
+
+    // case HTTPmethod.DELETE:
+    //   //run delete
+    // break;
+
+    default:
+      //default action
+    break;
+
+  }
+}
+
+function processPOSTMethod(request, response){
+  if(fileExists){
+    response.write('File Already Exists');
+    response.end();
+  }else{
+    creatingFile(response);
+  }
+}
+
+
+function processPUTMethod(request, response){
+
+  if(fileExists){
+    creatingFile(response);
+  }else{
+    response.write('File Does not Exist');
+    response.end();
+  }
+}
+
+
+function creatingFile (response){
 
   fs.writeFile(PUBLIC_DIR + fileName, fileContent, function(err){
     if(err){
       response.write(err);
       throw err;
     }else{
-      //Autoupdates the index.html file
-      readIndexFile();
+      // //Autoupdates the index.html file
+      // readIndexFile();
+
       response.setHeader("Content-Type", "application/json");
       response.write("{ \"success\" : true }");
       response.end();
@@ -136,7 +167,7 @@ function creatingFiles (response){
 
 }
 
-
+//beginning of the update index function
 function readIndexFile (response){
   fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
     if(err){
@@ -191,28 +222,31 @@ function updateIndexFile (response){
     }
   });
 }
+//End of entire updating the index
 
-function GETandHEADActions (request, response){
-  var uri = request.url;
 
-  if(uri === '/'){
-    uri = 'index.html';
+
+function processHEADMethod (request, response){
+  if(fileExists){
+    serveFileToClient (response, theUri);
+  }else{
+    handle404Error (response);
   }
-
-  fs.exists(PUBLIC_DIR + uri, function(exists){
-    if(exists){
-      //is file is there, give it to them
-      serveFileToClient (response, uri);
-    }else{
-      //if there is a 404 error
-      handle404Error (response);
-    }
-  });
 }
 
-function serveFileToClient (response, uri){
+function processGETMethod (request, response){
 
-  fs.readFile(PUBLIC_DIR + uri, function (err, data){
+  if(fileExists){
+    serveFileToClient (response, theUri);
+  }else{
+    handle404Error (response);
+  }
+
+}
+
+function serveFileToClient (response, theUri){
+
+  fs.readFile(PUBLIC_DIR + theUri, function (err, data){
     if(err) throw err;
     response.write(data);
     response.end();
