@@ -114,8 +114,8 @@ function handleRequest(request, response){
 
     case HTTPmethod.POST:
       processPOSTMethod(request, function(status, message){
-        if(status === 200){
           response.setHeader("Content-Type", "application/json");
+        if(status === 200){
           response.write(message);
           response.end();
         }else{
@@ -159,7 +159,8 @@ function handleRequest(request, response){
     break;
 
     default:
-      //default action
+      response.write('Error with the command center');
+      response.end();
     break;
   }
 }
