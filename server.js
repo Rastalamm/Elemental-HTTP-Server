@@ -88,7 +88,7 @@ function handleRequest(request, response){
     case HTTPmethod.HEAD :
       //run the http head
       processHEADMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.write(message);
           response.end();
         }else{
@@ -103,7 +103,7 @@ function handleRequest(request, response){
       // run GET
 
       processGETMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.write(message);
           response.end();
         }else{
@@ -116,7 +116,7 @@ function handleRequest(request, response){
 
     case HTTPmethod.POST:
       processPOSTMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
@@ -131,13 +131,15 @@ function handleRequest(request, response){
     case HTTPmethod.PUT:
 
       processPUTMethod(request, function(status, message){
-        if(status == 200){
+
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
         }else{
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
           response.write(message);
-          response.statusCode = 404;
           response.end();
         }
       });
@@ -145,13 +147,14 @@ function handleRequest(request, response){
 
     case HTTPmethod.DELETE:
       processDELETEMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
         }else{
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
           response.write(message);
-          response.statusCode = 404;
           response.end();
         }
       });
@@ -177,11 +180,37 @@ function processPUTMethod(request, callback){
   if(request.fileExists){
     creatingFile(request, callback);
   }else{
-    callback(404, 'File Does not Exist')
+    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
   }
 }
 
 function processDELETEMethod(request, callback){
+
+  if(request.fileExists){
+
+    //locate file on server and delete it
+    deleteFileOnServer(request, callback);
+
+    //remove Element from index
+    deleteElementFromIndex (request, callback)
+    //locate file on index
+    //update the element number list
+    //remove the link/li tag for that element
+  }else{
+    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
+  }
+
+}
+
+function deleteFileOnServer (request, callback){
+  fs.unlink(PUBLIC_DIR + request.url, function(err){
+    if(err){
+      callback(200, err);
+    }
+  });
+}
+
+function deleteElementFromIndex (request, callback){
 
 }
 
