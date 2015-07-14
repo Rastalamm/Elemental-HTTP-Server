@@ -20,10 +20,13 @@ var HTTPmethod = {
   PUT : 'PUT'
 };
 
+var count = 0;
 
 var server = http.createServer(getsResponseFromClient);
 
+
 function getsResponseFromClient(request, response){
+
   setTheUri(request);
   grabBodyOfRequest(request, response);
   EndOfDataStream(request, response);
@@ -77,30 +80,17 @@ function generateFile (request, response) {
 
 }
 
-
-
 function checkFileExisting (request, response){
-
-
 
   fs.exists(PUBLIC_DIR + fileName, function(exists){
     if(exists){
-      console.log('here');
-      //if the file exists
       fileExists = true;
-      // response.write('File exists. Need New Element');
-      // response.end()
     }else{
-      //is file is not there, create it!
       fileExists = false;
-      //creatingFiles(response);
     }
+
+    handleRequest(request, response);
   });
-
-  console.log('fileExists', fileExists);
-
-  handleRequest(request, response);
-
 }
 
 
@@ -119,11 +109,12 @@ function handleRequest(request, response){
     break;
 
     case HTTPmethod.POST:
-      //run POST
+      processPOSTMethod(request, response);
     break;
 
     case HTTPmethod.PUT:
-      //run PUT
+
+      processPUTMethod(request, response);
     break;
 
     // case HTTPmethod.DELETE:
@@ -137,39 +128,25 @@ function handleRequest(request, response){
   }
 }
 
-function POSTactions (request, response){
-
-    var uri = request.url;
-
-    console.log('uri', uri);
-
-    //grabBodyOfRequest (request, response)
-
-}
-
-function PUTactions (request, response){
-
-    var uri = request.url;
-
-    console.log('uri', uri);
-
-    grabBodyOfRequest (request, response)
-
-    request.on('end', function(){
-
-      //grab all the incomind Data an make it readable
-      incomingData = querystring.parse(requestBody);
-
-      generateFile(response);
-
-    });
-
+function processPOSTMethod(request, response){
+  if(fileExists){
+    response.write('File Already Exists');
+    response.end();
+  }else{
+    creatingFile(response);
+  }
 }
 
 
+function processPUTMethod(request, response){
 
-
-
+  if(fileExists){
+    creatingFile(response);
+  }else{
+    response.write('File Does not Exist');
+    response.end();
+  }
+}
 
 
 function creatingFile (response){
@@ -179,8 +156,9 @@ function creatingFile (response){
       response.write(err);
       throw err;
     }else{
-      //Autoupdates the index.html file
-      readIndexFile();
+      // //Autoupdates the index.html file
+      // readIndexFile();
+
       response.setHeader("Content-Type", "application/json");
       response.write("{ \"success\" : true }");
       response.end();
@@ -189,7 +167,7 @@ function creatingFile (response){
 
 }
 
-
+//beginning of the update index function
 function readIndexFile (response){
   fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
     if(err){
@@ -244,6 +222,8 @@ function updateIndexFile (response){
     }
   });
 }
+//End of entire updating the index
+
 
 
 function processHEADMethod (request, response){
@@ -253,8 +233,6 @@ function processHEADMethod (request, response){
     handle404Error (response);
   }
 }
-
-
 
 function processGETMethod (request, response){
 
