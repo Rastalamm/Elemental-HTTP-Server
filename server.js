@@ -3,7 +3,6 @@ var fs = require('fs');
 var querystring = require('querystring');
 var PORT = 6464;
 var PUBLIC_DIR = './public/';
-var incomingData;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -23,21 +22,20 @@ function getsResponseFromClient(request, response){
   setTheUri(request);
   grabBodyOfRequest(request);
   EndOfDataStream(request, response);
-}
+};
 
 function setTheUri(request){
-
   if(request.url === '/'){
     request.url = 'index.html';
     request.fileExists = true;
   }
-}
+};
 
 function grabBodyOfRequest (request){
   request.on('data', function(data){
     request.requestBody += data.toString();
-  })
-}
+  });
+};
 
 function EndOfDataStream(request, response){
   request.on('end', function(){
@@ -50,11 +48,9 @@ function EndOfDataStream(request, response){
 
     checkFileExisting(request, response, handleRequest);
   });
-
-}
+};
 
 function generateFile (request) {
-
   return '<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
   request.incomingData.elementName +
   '</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>' +
@@ -66,10 +62,9 @@ function generateFile (request) {
   '</h3> <p>' +
   request.incomingData.elementDescription +
   '</p> <p><a href="/">back</a></p> </body> </html>' ;
-}
+};
 
 function checkFileExisting (request, response, callback){
-
   fs.exists(PUBLIC_DIR + request.url, function(exists){
     if(exists){
       request.fileExists = true;
@@ -78,205 +73,156 @@ function checkFileExisting (request, response, callback){
     }
     callback(request, response);
   });
-}
+};
 
 function handleRequest(request, response){
 
+  function writeTheResponse(status, message, content){
+    if(content === 'JSON'){
+      response.setHeader("Content-Type", "application/json");
+    };
 
+    response.statusCode = status;
+    response.write(message);
+    response.end();
+  };
 
   switch(request.method){
     case HTTPmethod.HEAD :
-      //run the http head
-      processHEADMethod(request, function(status, message){
-        if(status === 200){
-        }else{
-          response.statusCode = 404;
-        }
-        response.write(message);
-        response.end();
-      });
+      processHEADMethod(request, writeTheResponse);
     break;
 
     case HTTPmethod.GET:
-      // run GET
-
-      processGETMethod(request, function(status, message){
-        if(status === 200){
-          response.write(message);
-          response.end();
-        }else{
-          response.write(message);
-          response.statusCode = 404;
-          response.end();
-        }
-      });
+      processGETMethod(request, writeTheResponse);
     break;
 
     case HTTPmethod.POST:
-      processPOSTMethod(request, function(status, message){
-        if(status === 200){
-          response.setHeader("Content-Type", "application/json");
-          response.write(message);
-          response.end();
-        }else{
-          response.write(message);
-          response.statusCode = 404;
-          response.end();
-        }
-      });
+      processPOSTMethod(request, writeTheResponse);
     break;
 
     case HTTPmethod.PUT:
 
-      processPUTMethod(request, function(status, message){
-
-        if(status === 200){
-          response.setHeader("Content-Type", "application/json");
-          response.write(message);
-          response.end();
-        }else{
-          response.statusCode = 500;
-          response.setHeader("Content-Type", "application/json");
-          response.write(message);
-          response.end();
-        }
-      });
+      processPUTMethod(request, writeTheResponse);
     break;
 
     case HTTPmethod.DELETE:
-      processDELETEMethod(request, function(status, message){
-        if(status === 200){
-          response.setHeader("Content-Type", "application/json");
-          response.write(message);
-          response.end();
-        }else{
-          response.statusCode = 500;
-          response.setHeader("Content-Type", "application/json");
-          response.write(message);
-          response.end();
-        }
-      });
+      processDELETEMethod(request, writeTheResponse);
     break;
 
     default:
-      //default action
+      response.write('Error with the command center');
+      response.end();
     break;
-  }
-}
+  };
+};
 
-function processPOSTMethod(request, callback){
+function processPOSTMethod(request, writeTheResponse){
   if(request.fileExists){
-    callback(404, 'File Already Exists')
+    writeTheResponse(404, 'File Already Exists');
   }else{
-    creatingFile(request, callback);
-    readAndUpdateIndex(request, callback);
-  }
-}
-
-function processPUTMethod(request, callback){
-
-  if(request.fileExists){
-    creatingFile(request, callback);
-  }else{
-    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
-  }
-}
-
-function processDELETEMethod(request, callback){
-
-  if(request.fileExists){
-
-    deleteFileOnServer(request, callback);
-    removeElementFromIndex (request, callback)
-  }else{
-    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
+    creatingFile(request, writeTheResponse);
+    readAndUpdateIndex(request, writeTheResponse);
   }
 };
 
-function deleteFileOnServer (request, callback){
+function processPUTMethod(request, writeTheResponse){
+  if(request.fileExists){
+    creatingFile(request, writeTheResponse);
+  }else{
+    writeTheResponse(500,"{ \"error\" : \"resource /carbon.html does not exist\" }", 'JSON');
+  }
+}
+
+function processDELETEMethod(request, writeTheResponse){
+  if(request.fileExists){
+    deleteFileOnServer(request, writeTheResponse);
+    removeElementFromIndex (request, writeTheResponse);
+  }else{
+    writeTheResponse(500, "{ \"error\" : \"File does not exist\" }", 'JSON');
+  }
+};
+
+function deleteFileOnServer (request, writeTheResponse){
   fs.unlink(PUBLIC_DIR + request.url, function(err){
     if(err){
-      callback(404, err);
+      writeTheResponse(404, err);
     }
   });
 };
 
-function removeElementFromIndex (request, callback){
-
+function removeElementFromIndex (request, writeTheResponse){
   fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
     if(err){
-      callback(404, err);
+      writeTheResponse(404, err);
     }else{
       data = data.toString();
       request.fileName = 'index.html';
-      findAndDecreaseNumOfElements(data, request, callback);
+      findAndDecreaseNumOfElements(data, request, writeTheResponse);
     }
   });
 };
 
-function findAndDecreaseNumOfElements (data, request, callback){
+function findAndDecreaseNumOfElements (data, request, writeTheResponse){
   var numOfEleStripper = /(\d+)<\/h3>/g;
   var numOfEleProcess = numOfEleStripper.exec(data);
 
   data = data.replace(numOfEleStripper, (Number(numOfEleProcess[1])-1) + '</h3>');
 
-  findAndRemoveElement(data, request, callback);
-}
+  findAndRemoveElement(data, request, writeTheResponse);
+};
 
-function findAndRemoveElement(data, request, callback){
+function findAndRemoveElement(data, request, writeTheResponse){
 
   var findElementStripper = new RegExp('<li>\\s<a\\shref="(' + request.url + ')">\\w+<\/a>\\s<\/li>','g');
 
   data = data.replace(findElementStripper, '');
 
   request.newIndexContent = data;
-  updateIndexFile(request, callback);
+  updateIndexFile(request, writeTheResponse);
+};
 
-}
-
-
-function creatingFile (request, callback){
+function creatingFile (request, writeTheResponse){
 
   fs.writeFile(PUBLIC_DIR + request.fileName, request.fileContent, function(err){
     if(err){
-      callback(404, err);
+      writeTheResponse(404, err);
     }else{
-      callback(200, "{ \"success\" : true }")
+      writeTheResponse(200, "{ \"success\" : true }", 'JSON');
     }
   });
 };
 
 //beginning of the update index function
-function readAndUpdateIndex (request, callback){
+function readAndUpdateIndex (request, writeTheResponse){
   fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
     if(err){
-      callback(404, err);
+      writeTheResponse(404, err);
     }else{
-    increaseNumofElements(data, request, callback);
+    increaseNumofElements(data, request, writeTheResponse);
     }
   });
 };
 
-function increaseNumofElements (data, request, callback){
+function increaseNumofElements (data, request, writeTheResponse){
   var numOfEleStripper = /(\d+)<\/h3>/g;
   var numOfEleProcess = numOfEleStripper.exec(data);
 
   request.numOfElementsOnIndex = Number(numOfEleProcess[1]) + 1;
 
-  setElementList(data, request, callback);
-}
+  setElementList(data, request, writeTheResponse);
+};
 
-function setElementList (data, request, callback){
+function setElementList (data, request, writeTheResponse){
   var setElementStripper = /<ol>(.*)<\/ol>/g;
   var setElementProcess = setElementStripper.exec(data);
 
   request.elementListOnIndex = setElementProcess[1];
 
-  createsNewIndexContent(request, callback);
+  createsNewIndexContent(request, writeTheResponse);
 };
 
 
-function createsNewIndexContent (request, callback){
+function createsNewIndexContent (request, writeTheResponse){
   request.newIndexContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>The Elements</h1> <h2>These are all the known elements.</h2> <h3>These are ' +
   request.numOfElementsOnIndex +
   '</h3> <ol>' +
@@ -287,51 +233,50 @@ function createsNewIndexContent (request, callback){
   request.incomingData.elementName +
   '</a> </li> </ol> </body> </html>';
 
-  updateIndexFile(request, callback);
-}
+  updateIndexFile(request, writeTheResponse);
+};
 
-function updateIndexFile (request, callback){
+function updateIndexFile (request, writeTheResponse){
   fs.writeFile(PUBLIC_DIR + 'index.html', request.newIndexContent, function(err){
     if(err){
-      callback(404, err)
+      writeTheResponse(404, err);
     }else{
-      callback(200, "{ \"success\" : true }");
+      writeTheResponse(200, "{ \"success\" : true }", 'JSON');
     }
   });
-}
+};
 //End of entire updating the index
 
-function processHEADMethod (request, callback){
+function processHEADMethod (request, writeTheResponse){
   if(request.fileExists){
-    serveFileToClient (request, callback);
+    serveFileToClient (request, writeTheResponse);
   }else{
-    handle404Error(callback);
+    handle404Error(writeTheResponse);
   }
-}
+};
 
-function processGETMethod (request, callback){
+function processGETMethod (request, writeTheResponse){
   if(request.fileExists){
-    serveFileToClient(request, callback);
+    serveFileToClient(request, writeTheResponse);
   }else{
-    handle404Error(callback);
+    handle404Error(writeTheResponse);
   }
-}
+};
 
-function serveFileToClient (request, callback){
+function serveFileToClient (request, writeTheResponse){
   fs.readFile(PUBLIC_DIR + request.url, function (err, data){
     if(err) throw err;
-    callback(200, data);
+    writeTheResponse(200, data);
   });
-}
+};
 
-function handle404Error (callback){
-
+function handle404Error (writeTheResponse){
   fs.readFile(PUBLIC_DIR + '404.html', function (err, data){
     if(err) throw err;
-    callback(400, data);
-  })
-}
+    writeTheResponse(404, data);
+  });
+};
 
 server.listen(PORT, function(){
-  console.log('http server listening on port:', PORT)
-})
+  console.log('http server listening on port:', PORT);
+});
