@@ -4,7 +4,6 @@ var querystring = require('querystring');
 var PORT = 6464;
 var PUBLIC_DIR = './public/';
 var incomingData;
-var theUri;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -27,7 +26,6 @@ function getsResponseFromClient(request, response){
 }
 
 function setTheUri(request){
-  request.url = request.url;
 
   if(request.url === '/'){
     request.url = 'index.html';
@@ -188,14 +186,8 @@ function processDELETEMethod(request, callback){
 
   if(request.fileExists){
 
-    //locate file on server and delete it
     deleteFileOnServer(request, callback);
-
-    //remove Element from index
-    deleteElementFromIndex (request, callback)
-    //locate file on index
-    //update the element number list
-    //remove the link/li tag for that element
+    removeElementFromIndex (request, callback)
   }else{
     callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
   }
@@ -205,14 +197,45 @@ function processDELETEMethod(request, callback){
 function deleteFileOnServer (request, callback){
   fs.unlink(PUBLIC_DIR + request.url, function(err){
     if(err){
-      callback(200, err);
+      callback(404, err);
     }
   });
 }
 
-function deleteElementFromIndex (request, callback){
+function removeElementFromIndex (request, callback){
+
+  fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
+    if(err){
+      callback(404, err);
+    }else{
+      data = data.toString();
+      request.fileName = 'index.html';
+      findAndDecreaseNumOfElements(data, request, callback);
+    }
+  });
 
 }
+
+function findAndDecreaseNumOfElements (data, request, callback){
+  var numOfEleStripper = /(\d+)<\/h3>/g;
+  var numOfEleProcess = numOfEleStripper.exec(data);
+
+  data = data.replace(numOfEleStripper, (Number(numOfEleProcess[1])-1) + '</h3>');
+
+  findAndRemoveElement(data, request, callback);
+}
+
+function findAndRemoveElement(data, request, callback){
+
+  var findElementStripper = new RegExp('<li>\\s<a\\shref="(' + request.url + ')">\\w+<\/a>\\s<\/li>','g');
+
+  data = data.replace(findElementStripper, '');
+
+  request.newIndexContent = data;
+  updateIndexFile(request, callback);
+
+}
+
 
 function creatingFile (request, callback){
 
@@ -231,12 +254,12 @@ function readAndUpdateIndex (request, callback){
     if(err){
       callback(404, err);
     }else{
-    setNumofElement(data, request, callback);
+    increaseNumofElements(data, request, callback);
     }
   });
 };
 
-function setNumofElement (data, request, callback){
+function increaseNumofElements (data, request, callback){
   var numOfEleStripper = /(\d+)<\/h3>/g;
   var numOfEleProcess = numOfEleStripper.exec(data);
 
@@ -273,6 +296,8 @@ function updateIndexFile (request, callback){
   fs.writeFile(PUBLIC_DIR + 'index.html', request.newIndexContent, function(err){
     if(err){
       callback(404, err)
+    }else{
+      callback(200, "{ \"success\" : true }");
     }
   });
 }
