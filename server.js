@@ -11,7 +11,6 @@ var fileContent;
 var numOfElementsOnIndex;
 var elementListOnIndex;
 var newIndexContent;
-var fileExists = false;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -33,12 +32,14 @@ function getsResponseFromClient(request, response){
 }
 
 function setTheUri(request){
-  theUri = request.url;
+  request.url = request.url;
 
-  if(theUri === '/'){
-    theUri = 'index.html';
-    fileExists = true;
+  if(request.url === '/'){
+    request.url = 'index.html';
+    request.fileExists = true;
   }
+
+
 }
 
 function grabBodyOfRequest (request, response){
@@ -61,10 +62,9 @@ function EndOfDataStream(request, response){
 }
 
 function generateFile (request, response) {
+  request.fileName = incomingData.elementName+'.html';
 
-  fileName = incomingData.elementName+'.html';
-
-  fileContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
+  request.fileContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
   incomingData.elementName +
   '</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>' +
   incomingData.elementName +
@@ -82,11 +82,11 @@ function generateFile (request, response) {
 
 function checkFileExisting (request, response){
 
-  fs.exists(PUBLIC_DIR + fileName, function(exists){
+  fs.exists(PUBLIC_DIR + request.url, function(exists){
     if(exists){
-      fileExists = true;
+      request.fileExists = true;
     }else{
-      fileExists = false;
+      request.fileExists = false;
     }
 
     handleRequest(request, response);
@@ -105,6 +105,7 @@ function handleRequest(request, response){
 
     case HTTPmethod.GET:
       // run GET
+
       processGETMethod(request, response);
     break;
 
@@ -129,19 +130,19 @@ function handleRequest(request, response){
 }
 
 function processPOSTMethod(request, response){
-  if(fileExists){
+  if(request.fileExists){
     response.write('File Already Exists');
     response.end();
   }else{
-    creatingFile(response);
+    creatingFile(request, response);
   }
 }
 
 
 function processPUTMethod(request, response){
 
-  if(fileExists){
-    creatingFile(response);
+  if(request.fileExists){
+    creatingFile(request, response);
   }else{
     response.write('File Does not Exist');
     response.end();
@@ -149,9 +150,9 @@ function processPUTMethod(request, response){
 }
 
 
-function creatingFile (response){
+function creatingFile (request, response){
 
-  fs.writeFile(PUBLIC_DIR + fileName, fileContent, function(err){
+  fs.writeFile(PUBLIC_DIR + request.fileName, request.fileContent, function(err){
     if(err){
       response.write(err);
       throw err;
@@ -174,34 +175,34 @@ function readIndexFile (response){
       response.write(err);
       throw err;
     }else{
-    setNumofElement(data, response);
+    setNumofElement(data, request, response);
     }
   });
 };
 
-function setNumofElement (data, response){
+function setNumofElement (data, request, response){
 
   var numOfEleStripper = /(\d+)<\/h3>/g;
   var numOfEleProcess = numOfEleStripper.exec(data);
 
-  numOfElementsOnIndex = Number(numOfEleProcess[1]) + 1;
+  request.numOfElementsOnIndex = Number(numOfEleProcess[1]) + 1;
 
-  setElementList(data, response);
+  setElementList(data, request, response);
 }
 
-function setElementList (data, response){
+function setElementList (data, request, response){
   var setElementStripper = /<ol>(.*)<\/ol>/g;
   var setElementProcess = setElementStripper.exec(data);
 
-  elementListOnIndex = setElementProcess[1];
+  request.elementListOnIndex = setElementProcess[1];
 
   createsNewIndexContent(response);
 };
 
 
-function createsNewIndexContent (response){
+function createsNewIndexContent (request, response){
 
-  newIndexContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>The Elements</h1> <h2>These are all the known elements.</h2> <h3>These are ' +
+  request.newIndexContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>The Elements</h1> <h2>These are all the known elements.</h2> <h3>These are ' +
   numOfElementsOnIndex +
   '</h3> <ol>' +
   elementListOnIndex +
@@ -215,7 +216,7 @@ function createsNewIndexContent (response){
 }
 
 function updateIndexFile (response){
-  fs.writeFile(PUBLIC_DIR + 'index.html', newIndexContent, function(err){
+  fs.writeFile(PUBLIC_DIR + 'index.html', request.newIndexContent, function(err){
     if(err){
       response.write(err);
       throw err;
@@ -227,26 +228,28 @@ function updateIndexFile (response){
 
 
 function processHEADMethod (request, response){
-  if(fileExists){
-    serveFileToClient (response, theUri);
+  if(request.fileExists){
+    serveFileToClient (request, response);
   }else{
-    handle404Error (response);
+    handle404Error(response);
   }
 }
 
 function processGETMethod (request, response){
 
-  if(fileExists){
-    serveFileToClient (response, theUri);
+
+
+  if(request.fileExists){
+    serveFileToClient(request, response);
   }else{
     handle404Error (response);
   }
 
 }
 
-function serveFileToClient (response, theUri){
+function serveFileToClient (request, response){
 
-  fs.readFile(PUBLIC_DIR + theUri, function (err, data){
+  fs.readFile(PUBLIC_DIR + request.url, function (err, data){
     if(err) throw err;
     response.write(data);
     response.end();
