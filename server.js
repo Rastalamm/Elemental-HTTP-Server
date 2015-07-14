@@ -4,7 +4,6 @@ var querystring = require('querystring');
 var PORT = 6464;
 var PUBLIC_DIR = './public/';
 var incomingData;
-var theUri;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -27,7 +26,6 @@ function getsResponseFromClient(request, response){
 }
 
 function setTheUri(request){
-  request.url = request.url;
 
   if(request.url === '/'){
     request.url = 'index.html';
@@ -88,7 +86,7 @@ function handleRequest(request, response){
     case HTTPmethod.HEAD :
       //run the http head
       processHEADMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.write(message);
           response.end();
         }else{
@@ -103,7 +101,7 @@ function handleRequest(request, response){
       // run GET
 
       processGETMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.write(message);
           response.end();
         }else{
@@ -116,7 +114,7 @@ function handleRequest(request, response){
 
     case HTTPmethod.POST:
       processPOSTMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
@@ -131,13 +129,15 @@ function handleRequest(request, response){
     case HTTPmethod.PUT:
 
       processPUTMethod(request, function(status, message){
-        if(status == 200){
+
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
         }else{
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
           response.write(message);
-          response.statusCode = 404;
           response.end();
         }
       });
@@ -145,13 +145,14 @@ function handleRequest(request, response){
 
     case HTTPmethod.DELETE:
       processDELETEMethod(request, function(status, message){
-        if(status == 200){
+        if(status === 200){
           response.setHeader("Content-Type", "application/json");
           response.write(message);
           response.end();
         }else{
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
           response.write(message);
-          response.statusCode = 404;
           response.end();
         }
       });
@@ -177,13 +178,64 @@ function processPUTMethod(request, callback){
   if(request.fileExists){
     creatingFile(request, callback);
   }else{
-    callback(404, 'File Does not Exist')
+    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
   }
 }
 
 function processDELETEMethod(request, callback){
 
+  if(request.fileExists){
+
+    deleteFileOnServer(request, callback);
+    removeElementFromIndex (request, callback)
+  }else{
+    callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
+  }
+
 }
+
+function deleteFileOnServer (request, callback){
+  fs.unlink(PUBLIC_DIR + request.url, function(err){
+    if(err){
+      callback(404, err);
+    }
+  });
+}
+
+function removeElementFromIndex (request, callback){
+
+  fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
+    if(err){
+      callback(404, err);
+    }else{
+      data = data.toString();
+      request.fileName = 'index.html';
+      findAndDecreaseNumOfElements(data, request, callback);
+    }
+  });
+
+}
+
+function findAndDecreaseNumOfElements (data, request, callback){
+  var numOfEleStripper = /(\d+)<\/h3>/g;
+  var numOfEleProcess = numOfEleStripper.exec(data);
+
+  data = data.replace(numOfEleStripper, (Number(numOfEleProcess[1])-1) + '</h3>');
+
+  findAndRemoveElement(data, request, callback);
+}
+
+function findAndRemoveElement(data, request, callback){
+
+  var findElementStripper = new RegExp('<li>\\s<a\\shref="(' + request.url + ')">\\w+<\/a>\\s<\/li>','g');
+
+  data = data.replace(findElementStripper, '');
+
+  request.newIndexContent = data;
+  updateIndexFile(request, callback);
+
+}
+
 
 function creatingFile (request, callback){
 
@@ -202,12 +254,12 @@ function readAndUpdateIndex (request, callback){
     if(err){
       callback(404, err);
     }else{
-    setNumofElement(data, request, callback);
+    increaseNumofElements(data, request, callback);
     }
   });
 };
 
-function setNumofElement (data, request, callback){
+function increaseNumofElements (data, request, callback){
   var numOfEleStripper = /(\d+)<\/h3>/g;
   var numOfEleProcess = numOfEleStripper.exec(data);
 
@@ -244,6 +296,8 @@ function updateIndexFile (request, callback){
   fs.writeFile(PUBLIC_DIR + 'index.html', request.newIndexContent, function(err){
     if(err){
       callback(404, err)
+    }else{
+      callback(200, "{ \"success\" : true }");
     }
   });
 }
