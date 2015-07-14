@@ -3,14 +3,10 @@ var fs = require('fs');
 var querystring = require('querystring');
 var PORT = 6464;
 var PUBLIC_DIR = './public/';
-var requestBody = '';
 var incomingData;
 var theUri;
 var fileName;
 var fileContent;
-var numOfElementsOnIndex;
-var elementListOnIndex;
-var newIndexContent;
 
 var HTTPmethod = {
   GET : 'GET',
@@ -25,6 +21,7 @@ var server = http.createServer(getsResponseFromClient);
 
 
 function getsResponseFromClient(request, response){
+  request.requestBody = '';
 
   setTheUri(request);
   grabBodyOfRequest(request, response);
@@ -44,7 +41,7 @@ function setTheUri(request){
 
 function grabBodyOfRequest (request, response){
   request.on('data', function(data){
-    requestBody += data.toString();
+    request.requestBody += data.toString();
   })
 }
 
@@ -53,34 +50,32 @@ function EndOfDataStream(request, response){
   request.on('end', function(){
 
     //grab all the incomind Data an make it readable
-    incomingData = querystring.parse(requestBody);
+    request.incomingData = querystring.parse(request.requestBody);
 
-    generateFile(request, response);
+    request.fileName = request.incomingData.elementName+'.html';
+    request.fileContent = generateFile(request, response);
 
+    checkFileExisting(request, response, handleRequest);
   });
 
 }
 
 function generateFile (request, response) {
-  request.fileName = incomingData.elementName+'.html';
 
-  request.fileContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
-  incomingData.elementName +
+  return '<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements - ' +
+  request.incomingData.elementName +
   '</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>' +
-  incomingData.elementName +
+  request.incomingData.elementName +
   '</h1> <h2>' +
-  incomingData.elementSymbol +
+  request.incomingData.elementSymbol +
   '</h2> <h3>Atomic number ' +
-  incomingData.elementAtomicNumber +
+  request.incomingData.elementAtomicNumber +
   '</h3> <p>' +
-  incomingData.elementDescription +
+  request.incomingData.elementDescription +
   '</p> <p><a href="/">back</a></p> </body> </html>' ;
-
-  checkFileExisting(request, response);
-
 }
 
-function checkFileExisting (request, response){
+function checkFileExisting (request, response, callback){
 
   fs.exists(PUBLIC_DIR + request.url, function(exists){
     if(exists){
@@ -88,8 +83,7 @@ function checkFileExisting (request, response){
     }else{
       request.fileExists = false;
     }
-
-    handleRequest(request, response);
+    callback(request, response);
   });
 }
 
@@ -135,6 +129,7 @@ function processPOSTMethod(request, response){
     response.end();
   }else{
     creatingFile(request, response);
+    readAndUpdateIndex(request, response);
   }
 }
 
@@ -149,7 +144,6 @@ function processPUTMethod(request, response){
   }
 }
 
-
 function creatingFile (request, response){
 
   fs.writeFile(PUBLIC_DIR + request.fileName, request.fileContent, function(err){
@@ -157,9 +151,6 @@ function creatingFile (request, response){
       response.write(err);
       throw err;
     }else{
-      // //Autoupdates the index.html file
-      // readIndexFile();
-
       response.setHeader("Content-Type", "application/json");
       response.write("{ \"success\" : true }");
       response.end();
@@ -169,7 +160,7 @@ function creatingFile (request, response){
 }
 
 //beginning of the update index function
-function readIndexFile (response){
+function readAndUpdateIndex (request, response){
   fs.readFile(PUBLIC_DIR + 'index.html', function(err, data){
     if(err){
       response.write(err);
@@ -196,26 +187,26 @@ function setElementList (data, request, response){
 
   request.elementListOnIndex = setElementProcess[1];
 
-  createsNewIndexContent(response);
+  createsNewIndexContent(request, response);
 };
 
 
 function createsNewIndexContent (request, response){
 
   request.newIndexContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>The Elements</h1> <h2>These are all the known elements.</h2> <h3>These are ' +
-  numOfElementsOnIndex +
+  request.numOfElementsOnIndex +
   '</h3> <ol>' +
-  elementListOnIndex +
+  request.elementListOnIndex +
   '<li> <a href="/' +
-  incomingData.elementName +
-  '">' +
-  incomingData.elementName +
+  request.incomingData.elementName +
+  '.html">' +
+  request.incomingData.elementName +
   '</a> </li> </ol> </body> </html>';
 
-  updateIndexFile(response);
+  updateIndexFile(request, response);
 }
 
-function updateIndexFile (response){
+function updateIndexFile (request, response){
   fs.writeFile(PUBLIC_DIR + 'index.html', request.newIndexContent, function(err){
     if(err){
       response.write(err);
@@ -236,15 +227,11 @@ function processHEADMethod (request, response){
 }
 
 function processGETMethod (request, response){
-
-
-
   if(request.fileExists){
     serveFileToClient(request, response);
   }else{
     handle404Error (response);
   }
-
 }
 
 function serveFileToClient (request, response){
