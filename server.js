@@ -75,26 +75,6 @@ function checkFileExisting (request, response, callback){
   });
 };
 
-
-
-var asyncDone = [false, false]
-
-function checkAllAsyncDone(){
-  return asyncDone.reduce(function(p,c){
-    return p && c;
-  }, true)
-}
-
-function asyncFinished(){
-  if( checkAllAsyncDone() ){
-    //call the write the response function
-  }
-}
-
-
-
-
-
 function handleRequest(request, response){
 
   function writeTheResponse(status, message, content){
