@@ -75,6 +75,26 @@ function checkFileExisting (request, response, callback){
   });
 };
 
+
+
+var asyncDone = [false, false]
+
+function checkAllAsyncDone(){
+  return asyncDone.reduce(function(p,c){
+    return p && c;
+  }, true)
+}
+
+function asyncFinished(){
+  if( checkAllAsyncDone() ){
+    //call the write the response function
+  }
+}
+
+
+
+
+
 function handleRequest(request, response){
 
   function writeTheResponse(status, message, content){
@@ -116,12 +136,16 @@ function handleRequest(request, response){
   };
 };
 
+//callback hell scenario - need to follow the request all the way through
+//the chain to see why its breaking
+
 function processPOSTMethod(request, writeTheResponse){
   if(request.fileExists){
     writeTheResponse(404, 'File Already Exists');
   }else{
-    creatingFile(request, writeTheResponse);
-    readAndUpdateIndex(request, writeTheResponse);
+    creatingFile(request, function(request){
+      readAndUpdateIndex(request, writeTheResponse);
+    });
   }
 };
 
@@ -198,7 +222,7 @@ function readAndUpdateIndex (request, writeTheResponse){
     if(err){
       writeTheResponse(404, err);
     }else{
-    increaseNumofElements(data, request, writeTheResponse);
+      increaseNumofElements(data, request, writeTheResponse);
     }
   });
 };
