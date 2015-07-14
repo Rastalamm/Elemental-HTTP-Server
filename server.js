@@ -82,18 +82,18 @@ function checkFileExisting (request, response, callback){
 
 function handleRequest(request, response){
 
+
+
   switch(request.method){
     case HTTPmethod.HEAD :
       //run the http head
       processHEADMethod(request, function(status, message){
         if(status === 200){
-          response.write(message);
-          response.end();
         }else{
-          response.write(message);
           response.statusCode = 404;
-          response.end();
         }
+        response.write(message);
+        response.end();
       });
     break;
 
@@ -191,8 +191,7 @@ function processDELETEMethod(request, callback){
   }else{
     callback(500, "{ \"error\" : \"resource /carbon.html does not exist\" }")
   }
-
-}
+};
 
 function deleteFileOnServer (request, callback){
   fs.unlink(PUBLIC_DIR + request.url, function(err){
@@ -200,7 +199,7 @@ function deleteFileOnServer (request, callback){
       callback(404, err);
     }
   });
-}
+};
 
 function removeElementFromIndex (request, callback){
 
@@ -213,8 +212,7 @@ function removeElementFromIndex (request, callback){
       findAndDecreaseNumOfElements(data, request, callback);
     }
   });
-
-}
+};
 
 function findAndDecreaseNumOfElements (data, request, callback){
   var numOfEleStripper = /(\d+)<\/h3>/g;
