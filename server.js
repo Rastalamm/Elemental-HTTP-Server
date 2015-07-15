@@ -189,7 +189,6 @@ function creatingFile (request, writeTheResponse, callback){
       writeTheResponse(404, err);
     }else{
       callback(request, writeTheResponse);
-      // writeTheResponse(200, "{ \"success\" : true }", 'JSON');
     }
   });
 };
