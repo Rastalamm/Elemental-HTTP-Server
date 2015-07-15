@@ -120,8 +120,9 @@ function processPOSTMethod(request, writeTheResponse){
   if(request.fileExists){
     writeTheResponse(404, 'File Already Exists');
   }else{
-    creatingFile(request, writeTheResponse);
-    readAndUpdateIndex(request, writeTheResponse);
+    creatingFile(request, writeTheResponse, function(){
+      readAndUpdateIndex(request, writeTheResponse);
+    });
   }
 };
 
@@ -181,13 +182,13 @@ function findAndRemoveElement(data, request, writeTheResponse){
   updateIndexFile(request, writeTheResponse);
 };
 
-function creatingFile (request, writeTheResponse){
+function creatingFile (request, writeTheResponse, callback){
 
   fs.writeFile(PUBLIC_DIR + request.fileName, request.fileContent, function(err){
     if(err){
       writeTheResponse(404, err);
     }else{
-      writeTheResponse(200, "{ \"success\" : true }", 'JSON');
+      callback(request, writeTheResponse);
     }
   });
 };
@@ -198,7 +199,7 @@ function readAndUpdateIndex (request, writeTheResponse){
     if(err){
       writeTheResponse(404, err);
     }else{
-    increaseNumofElements(data, request, writeTheResponse);
+      increaseNumofElements(data, request, writeTheResponse);
     }
   });
 };
@@ -223,6 +224,7 @@ function setElementList (data, request, writeTheResponse){
 
 
 function createsNewIndexContent (request, writeTheResponse){
+
   request.newIndexContent ='<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>The Elements</title> <link rel="stylesheet" href="/css/styles.css"> </head> <body> <h1>The Elements</h1> <h2>These are all the known elements.</h2> <h3>These are ' +
   request.numOfElementsOnIndex +
   '</h3> <ol>' +
